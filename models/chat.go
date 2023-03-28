@@ -13,22 +13,22 @@ import (
 )
 
 type Chat struct {
-	ID          uint             `gorm:"primaryKey" json:"id"`
-	AppID       uint             `json:"-"`
-	Remark      string           `json:"remark"`
-	Messages    []*Message       `gorm:"foreignKey:ChatID" json:"messages"`
-	Application *ChatApplication `gorm:"foreignKey:AppID" json:"app"`
-	Model       string           `json:"model"`
+	ID       uint       `gorm:"primaryKey" json:"id"`
+	AppID    uint       `json:"-"`
+	Remark   string     `json:"remark"`
+	Messages []*Message `gorm:"foreignKey:ChatID" json:"messages"`
+	// Application *ChatApplication `gorm:"foreignKey:AppID" json:"app"`
+	Model string `json:"model"`
 	BaseModel
 }
 
-type ChatApplication struct {
-	ID        uint   `json:"id"`
-	Name      string `json:"name"`
-	AppSecret string `json:"-"`
-	AppKey    string `json:"-"`
-	Status    uint   `json:"-"`
-}
+// type ChatApplication struct {
+// 	ID        uint   `json:"id"`
+// 	Name      string `json:"name"`
+// 	AppSecret string `json:"-"`
+// 	AppKey    string `json:"-"`
+// 	Status    uint   `json:"-"`
+// }
 
 func (chat *Chat) QueryChatGPT() (msg *Message, err error) {
 
