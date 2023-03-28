@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -76,6 +77,10 @@ func newScriptDevNode() html.Node {
 }
 
 func main() {
+	//写入 pid
+	pid := os.Getpid()
+	helper.Config.WritePid(pid)
+
 	// 判断是部署环境
 	if helper.IsRelease() {
 		gin.SetMode(gin.ReleaseMode)
@@ -108,7 +113,7 @@ func main() {
 
 		r.SetHTMLTemplate(templ)
 
-		r.StaticFS("/assets", http.Dir("./dist/assets"))
+		// r.StaticFS("/assets", http.Dir("./dist/assets"))
 
 		// 反向代理代码目录
 		proxyHandle := func(c *gin.Context) {

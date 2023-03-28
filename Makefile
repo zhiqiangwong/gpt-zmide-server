@@ -28,7 +28,7 @@ $(UI_DIR)/node_modules/.package-lock.json: $(UI_DIR)/package.json
 	npm run build
 
 ./build/bin/gpt-zmide-server: ./dist/ $(GO_SOURCE)
-	cd $(GO_DIR); CGO_ENABLED=0 go build -ldflags="-s -w" -o ./build/bin/gpt-zmide-server .
+	cd $(GO_DIR); CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o ./build/bin/gpt-zmide-server .
 
 clean:
 	rm -rf ./build/bin/gpt-zmide-server ./dist/
