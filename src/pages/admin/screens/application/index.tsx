@@ -4,7 +4,7 @@
  * @FilePath: /gpt-zmide-server/src/pages/admin/screens/application/index.tsx
  */
 import React from 'react'
-import { Button, Input, Message, Modal, Result, Table, TableColumnProps, Tag, Form, Tooltip } from '@arco-design/web-react'
+import { Button, Input, Message, Modal, Result, Table, TableColumnProps, Tag, Form, Tooltip, Dropdown, Menu } from '@arco-design/web-react'
 import { IconQuestionCircle } from '@arco-design/web-react/icon'
 import useAxios from 'axios-hooks';
 import { axios } from '@/apis';
@@ -27,12 +27,21 @@ export default function index() {
             dataIndex: 'name',
         },
         {
-            title: '应用KEY',
+            title: '密钥',
             dataIndex: 'app_key',
         },
         {
-            title: '应用密钥',
-            dataIndex: 'app_secret',
+            title: 'API_KEY',
+            dataIndex: 'api_key',
+        },
+        {
+            title: <Tooltip content='OpenAI 接口对 gpt-3.5 消息上下文有 4600 字数限制，启用修复长消息的话，当会话消息字数超过限制会自动忽略旧消息，只发送最新消息内容'>
+                长消息<IconQuestionCircle />
+            </Tooltip>,
+            dataIndex: 'enable_fix_long_msg',
+            render: (enable_fix_long_msg) => {
+                return enable_fix_long_msg === 1 ? <Tag color='green'>启用</Tag> : <Tag color='red'>禁用</Tag>
+            }
         },
         {
             title: '状态',
@@ -55,15 +64,6 @@ export default function index() {
                         type='text'
                         disabled={!item?.id}
                         onClick={() => {
-                            updateAppStatus(item.id, item.status)
-                        }}
-                    >
-                        {item?.status === 1 ? '禁用' : '启用'}
-                    </Button>
-                    <Button
-                        type='text'
-                        disabled={!item?.id}
-                        onClick={() => {
                             setCreateAppConfig({
                                 ...createAppConfig,
                                 visible: true,
@@ -74,18 +74,29 @@ export default function index() {
                     >
                         修改
                     </Button>
-                    <Button
-                        type='text'
-                        disabled={!item?.id}
-                        onClick={() => {
-                            updateAppStatus(item.id, undefined, item.enable_fix_long_msg)
-                        }}
+                    <Dropdown
+                        droplist={
+                            <Menu onClickMenuItem={(key) => {
+                                if (key == 'status') {
+                                    return updateAppStatus(item.id, item.status)
+                                }
+
+                                if (key == 'long_message') {
+                                    return updateAppStatus(item.id, undefined, item.enable_fix_long_msg)
+                                }
+
+                                if (key == 'reset_apikey') {
+                                    return resetAppApiKey(item.id)
+                                }
+                            }}>
+                                <Menu.Item key='status'>{item?.status === 1 ? '禁用' : '启用'}</Menu.Item>
+                                <Menu.Item key='long_message'>{item?.enable_fix_long_msg === 1 ? '禁用/长消息' : '启用/长消息'}</Menu.Item>
+                                <Menu.Item key='reset_apikey'>重置API_KEY</Menu.Item>
+                            </Menu>
+                        }
                     >
-                        {item?.enable_fix_long_msg === 1 ? '禁用/长消息' : '启用/长消息'}
-                    </Button>
-                    <Tooltip content='OpenAI 接口对 gpt-3.5 消息上下文有 4600 字数限制，启用修复长消息的话，当会话消息字数超过限制会自动忽略旧消息，只发送最新消息内容'>
-                        <IconQuestionCircle />
-                    </Tooltip>
+                        <Button type='text'>更多</Button>
+                    </Dropdown>
                 </> : undefined
             }
         },
@@ -179,6 +190,29 @@ export default function index() {
             // 成功
             refresh() // 刷新数据 
             Message.success(`配置成功`)
+        }).catch(err => {
+            Message.info(`请求失败，${err.message || '请稍后重试'}`)
+        })
+    }
+
+    // 重置 api_key
+    const resetAppApiKey = (id: number) => {
+        if (!id || id < 1) {
+            Message.warning('应用异常。')
+            return
+        }
+
+        const formData = new FormData();
+
+        axios.post(`/api/admin/application/${id}/apikey/reset`, formData).then((response) => {
+            const { code, msg, data } = response.data
+            if (code !== 200) {
+                Message.info(`请求失败，${msg || code}`)
+                return
+            }
+            // 成功
+            refresh() // 刷新数据 
+            Message.success(`操作成功`)
         }).catch(err => {
             Message.info(`请求失败，${err.message || '请稍后重试'}`)
         })

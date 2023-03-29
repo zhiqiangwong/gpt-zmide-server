@@ -19,20 +19,14 @@ import (
 	"github.com/wumansgy/goEncrypt/aes"
 )
 
-func applicationCredential(token string, appKey string) (*models.Application, error) {
+func applicationCredential(token string) (*models.Application, error) {
 	if token == "" {
 		return nil, errors.New("authorization 为空")
 	}
 
-	app := &models.Application{AppKey: appKey}
-	if err := models.DB.Where("app_key = ?", appKey).First(app).Error; err != nil {
+	app := &models.Application{}
+	if err := models.DB.Where("app_key = ?", token).Or("api_key = ?", token).First(app).Error; err != nil {
 		return nil, err
-	}
-
-	// 校验 token 是否有效
-	plaintext, err := aes.AesCbcDecryptByBase64(token, []byte(strings.Replace(app.AppSecret, "-", "", -1)), make([]byte, 16))
-	if err != nil || string(plaintext) != appKey {
-		return nil, errors.New("authorization 异常")
 	}
 
 	if app != nil && app.Status == 1 {
@@ -50,12 +44,7 @@ func BasicAuthOpen() gin.HandlerFunc {
 			auth = c.Query("token")
 		}
 
-		appKey := c.Request.Header.Get("Applicationkey")
-		if appKey == "" {
-			appKey = c.Query("app_key")
-		}
-
-		app, err := applicationCredential(auth, appKey)
+		app, err := applicationCredential(auth)
 		if err != nil || app == nil {
 			// Credentials doesn't match, we return 401 and abort handlers chain.
 			apis.APIDefaultController.Fail(c, "应用认证失败。")
@@ -67,7 +56,7 @@ func BasicAuthOpen() gin.HandlerFunc {
 		encryptBody := c.Request.Header.Get("EncryptBody")
 		if encryptBody == "1" {
 			body, _ := c.GetRawData()
-			plaintext, _ := aes.AesCbcDecryptByBase64(string(body), []byte(strings.Replace(app.AppSecret, "-", "", -1)), make([]byte, 16))
+			plaintext, _ := aes.AesCbcDecryptByBase64(string(body), []byte(strings.Replace(app.AppKey, "-", "", -1)), make([]byte, 16))
 
 			var bodyMap map[string]string
 			if err := json.Unmarshal(plaintext, &bodyMap); err != nil {
