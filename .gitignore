@@ -30,3 +30,4 @@ gpt-zmide-server
 build/
 
 run.pid
+builds
