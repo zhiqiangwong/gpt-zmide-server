@@ -45,6 +45,7 @@ func BuildRouter(r *gin.Engine) *gin.Engine {
 		openApis := api.Group("/open", middleware.BasicAuthOpen())
 		openApis.POST("/", apisCtlOpen.Index)
 		openApis.POST("/query", apisCtlOpen.Query)
+		openApis.POST("/chat", apisCtlOpen.Chat)
 
 		adminApis := api.Group("/admin", middleware.BasicAuthAdmin())
 
