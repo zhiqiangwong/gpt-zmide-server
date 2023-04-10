@@ -7,8 +7,8 @@ package models
 
 import (
 	"errors"
-	"fmt"
 	"gpt-zmide-server/helper"
+	"gpt-zmide-server/helper/logger"
 )
 
 type Chat struct {
@@ -106,6 +106,7 @@ func (chat *Chat) QueryChatGPT(stream bool) (msg *Message, err error) {
 	}
 
 	if len(res.Choices) < 1 {
+		logger.Warn("OpenAI CallBack Data unusual " + res.Raw)
 		return nil, errors.New("openai api callback choices data error")
 	}
 
@@ -118,7 +119,8 @@ func (chat *Chat) QueryChatGPT(stream bool) (msg *Message, err error) {
 	}
 
 	if err = DB.Create(msg).Error; err != nil {
-		fmt.Println("message create error " + err.Error())
+		// fmt.Println("message create error " + err.Error())
+		logger.Error("message create error " + err.Error())
 	}
 
 	return msg, nil

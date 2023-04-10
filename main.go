@@ -8,7 +8,6 @@ package main
 import (
 	"bytes"
 	"embed"
-	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
@@ -25,6 +24,7 @@ import (
 	"golang.org/x/net/html/atom"
 
 	"gpt-zmide-server/helper"
+	"gpt-zmide-server/helper/logger"
 	_ "gpt-zmide-server/models"
 	"gpt-zmide-server/routers"
 )
@@ -86,6 +86,8 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	logger.InitLogger()
+
 	r := gin.Default()
 
 	// 配置静态文件路由
@@ -105,7 +107,7 @@ func main() {
 
 				templItem := template.Must(templ.Parse(renderNode(document.AddBack().Get(0))))
 				// templ := template.Must(template.New(templ.Tree.Root.String()).Parse())
-				fmt.Println("解析 " + item.Name())
+				logger.Debug("解析 html " + item.Name())
 				templ.AddParseTree(item.Name(), templItem.Tree)
 			}
 		}
@@ -152,5 +154,6 @@ func main() {
 	if err != nil {
 		serverHost = &url.URL{Host: "0.0.0.0:8091"}
 	}
+	logger.Info("gpt-zmide-server start up, listening and serving HTTP on " + serverHost.String())
 	r.Run(serverHost.Host)
 }
