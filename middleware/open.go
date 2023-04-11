@@ -58,7 +58,7 @@ func BasicAuthOpen() gin.HandlerFunc {
 			body, _ := c.GetRawData()
 			plaintext, _ := aes.AesCbcDecryptByBase64(string(body), []byte(strings.Replace(app.AppKey, "-", "", -1)), make([]byte, 16))
 
-			var bodyMap map[string]string
+			var bodyMap map[string]interface{}
 			if err := json.Unmarshal(plaintext, &bodyMap); err != nil {
 				apis.APIDefaultController.Fail(c, "body 校验失败。")
 				c.AbortWithStatus(http.StatusUnauthorized)

@@ -25,7 +25,7 @@ func (ctl *Open) Index(c *gin.Context) {
 
 func (ctl *Open) Query(c *gin.Context) {
 	appTmp := c.MustGet(helper.MiddlewareAuthAppKey)
-	bodyMap := c.GetStringMapString(helper.PostBodyKey)
+	bodyMap := c.GetStringMap(helper.PostBodyKey)
 
 	if appTmp == nil {
 		ctl.Fail(c, "应用异常")
@@ -39,14 +39,32 @@ func (ctl *Open) Query(c *gin.Context) {
 		return
 	}
 
-	content := c.DefaultPostForm("content", bodyMap["content"])
-	p_chat_id := c.DefaultPostForm("chat_id", bodyMap["chat_id"])
-	p_remark := c.DefaultPostForm("remark", bodyMap["remark"])
-	model := c.DefaultPostForm("model", bodyMap["model"])
+	var content, p_chat_id, p_remark, model string
+
+	if bodyMap != nil {
+		content = bodyMap["content"].(string)
+
+		if chatID, ok := bodyMap["chat_id"].(string); ok {
+			p_chat_id = chatID
+		}
+
+		if remark, ok := bodyMap["remark"].(string); ok {
+			p_remark = remark
+		}
+
+		if p_model, ok := bodyMap["model"].(string); ok {
+			model = p_model
+		}
+	} else {
+		content = c.PostForm("content")
+		p_chat_id = c.PostForm("chat_id")
+		p_remark = c.PostForm("remark")
+		model = c.PostForm("model")
+	}
 
 	// content 参数为必传
 	if content == "" {
-		ctl.Fail(c, "参数异常")
+		ctl.Fail(c, "参数异常1")
 		return
 	}
 
@@ -212,4 +230,74 @@ func (ctl *Open) Chat(c *gin.Context) {
 	jsonStr, _ := json.Marshal(gin.H{"status": "ok", "code": 200, "data": callback})
 	c.Writer.WriteString("data: " + string(jsonStr) + "\n")
 	c.Writer.WriteString("data: " + "[DONE]" + "\n")
+}
+
+// 按 openai 原格式
+func (ctl *Open) ChatRaw(c *gin.Context) {
+	appTmp := c.MustGet(helper.MiddlewareAuthAppKey)
+
+	if appTmp == nil {
+		ctl.Fail(c, "应用异常")
+		return
+	}
+
+	var app *models.Application
+	var ok bool
+	if app, ok = appTmp.(*models.Application); !ok || app == nil || app.Status != 1 {
+		ctl.Fail(c, "应用异常")
+		return
+	}
+
+	var reqBody []byte
+	var err error
+	var bodyMap map[string]any
+
+	// 兼容加密数据
+	bodyMap = c.GetStringMap(helper.PostBodyKey)
+	if bodyMap != nil {
+		reqBody, err = json.Marshal(bodyMap)
+	} else {
+		//获取请求内容
+		rawBody, err := c.GetRawData()
+		if err != nil {
+			ctl.Fail(c, "请求参数异常")
+			return
+		}
+
+		json.Unmarshal(rawBody, &bodyMap)
+	}
+
+	if bodyMap == nil {
+		ctl.Fail(c, "请求参数异常")
+		return
+	}
+
+	if _, ok := bodyMap["token"]; ok {
+		delete(bodyMap, "token")
+	}
+
+	reqBody, err = json.Marshal(bodyMap)
+
+	chatReq := &helper.ChatRequest{
+		RawBody: reqBody,
+		Raw:     true, // 指定结果原样返回
+	}
+
+	// 设置流式响应头
+	c.Header("Content-Type", "text/event-stream;charset=utf-8")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no") // 禁用nginx缓冲
+	c.Header("Access-Control-Allow-Origin", "*")
+
+	// 以 stream 模式进行请求
+	_, err = helper.ChatGptAsk(*chatReq, func(line *helper.OpenAIResponseStream) {
+		c.Writer.WriteString(line.Raw)
+		c.Writer.Flush()
+	})
+
+	if err != nil {
+		ctl.Fail(c, "请求参数异常")
+		return
+	}
 }

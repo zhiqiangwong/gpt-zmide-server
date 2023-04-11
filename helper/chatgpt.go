@@ -14,12 +14,17 @@ import (
 
 // 构造请求体
 type ChatRequest struct {
-	Model       string         `json:"model"`
-	Messages    []*ChatMessage `json:"messages"`
-	User        string         `json:"user"`
-	Stream      bool           `json:"stream"`
-	Temperature float64        `json:"temperature,omitempty"`
-	MaxTokens   int            `json:"max_tokens,omitempty"`
+	Model            string         `json:"model"`
+	Messages         []*ChatMessage `json:"messages"`
+	User             string         `json:"user"`
+	Stream           bool           `json:"stream"`
+	Temperature      float64        `json:"temperature,omitempty"`
+	MaxTokens        int            `json:"max_tokens,omitempty"`
+	FrequencyPenalty float64        `json:"frequency_penalty,omitempty"`
+	PresencePenalty  float64        `json:"presence_penalty,omitempty"`
+	TopP             float64        `json:"top_p,omitempty"`
+	Raw              bool           `json:"-"`
+	RawBody          []byte         `json:"-"`
 }
 
 type ChatMessage struct {
@@ -46,7 +51,7 @@ type OpenAIResponse struct {
 		TotalTokens      int64 `json:"total_tokens"`
 	} `json:"usage"`
 	Choices []*ChatChoices `json:"choices"`
-	Raw     string
+	Raw     string         `json:"-"`
 }
 
 // openAi 返回结构体(Stream)
@@ -63,6 +68,7 @@ type OpenAIResponseStream struct {
 		Index        int    `json:"index"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
+	Raw string `json:"-"`
 }
 
 // 调用 chatGPT
@@ -80,10 +86,17 @@ func ChatGptAsk(req ChatRequest, streamCall ...func(line *OpenAIResponseStream))
 		c = c.SetDoNotParseResponse(true)
 	}
 
-	bodyStr, err := json.Marshal(req)
-	if err != nil {
-		return
+	var bodyStr []byte
+
+	if req.RawBody == nil {
+		bodyStr, err = json.Marshal(req)
+		if err != nil {
+			return
+		}
+	} else {
+		bodyStr = req.RawBody
 	}
+
 	// 发送请求
 	resp, err := c.SetBody(bodyStr).Post("/v1/chat/completions")
 
@@ -117,30 +130,38 @@ func ChatGptAsk(req ChatRequest, streamCall ...func(line *OpenAIResponseStream))
 
 			var resStream *OpenAIResponseStream
 
-			// 去掉 data: 前缀
-			jsonData := strings.TrimSpace(strings.TrimPrefix(string(line), "data:"))
+			// 是否指定原样返回
+			if !req.Raw {
+				// 去掉 data: 前缀
+				jsonData := strings.TrimSpace(strings.TrimPrefix(string(line), "data:"))
 
-			if jsonData == "[DONE]" {
-				break
+				if jsonData == "[DONE]" {
+					break
+				}
+
+				err = json.Unmarshal([]byte(jsonData), &resStream)
+
+				if resStream != nil {
+					if resStream.Choices[0].Delta.Role != "" {
+						message.Role = resStream.Choices[0].Delta.Role
+					}
+
+					if resStream.Choices[0].Delta.Content != "" {
+						message.Content += resStream.Choices[0].Delta.Content
+					}
+
+					res.Raw += jsonData
+					res.ID += resStream.ID
+					res.Model += resStream.Model
+					res.Object += resStream.Object
+					res.Created += resStream.Created
+				}
+			} else {
+				resStream = &OpenAIResponseStream{}
+				resStream.Raw = string(line)
 			}
 
-			err = json.Unmarshal([]byte(jsonData), &resStream)
-
 			if resStream != nil {
-				if resStream.Choices[0].Delta.Role != "" {
-					message.Role = resStream.Choices[0].Delta.Role
-				}
-
-				if resStream.Choices[0].Delta.Content != "" {
-					message.Content += resStream.Choices[0].Delta.Content
-				}
-
-				res.Raw += jsonData
-				res.ID += resStream.ID
-				res.Model += resStream.Model
-				res.Object += resStream.Object
-				res.Created += resStream.Created
-
 				streamCall[0](resStream)
 			}
 		}
