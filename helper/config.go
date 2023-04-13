@@ -228,3 +228,27 @@ func PingOpenAI(secret_key string, proxy_host string, proxy_port string) (status
 
 	return
 }
+
+func getPidPath() string {
+	if IsRelease() {
+		appPath, err := os.Executable()
+		if err == nil {
+			appPath = filepath.Dir(appPath)
+			if appPath != "" {
+				return appPath + "/run.pid"
+			}
+		}
+	}
+	return "./run.pid"
+}
+
+// 保存pid
+func (c *DefaultConfig) WritePid(pid int) error {
+	err := os.WriteFile(getPidPath(), []byte(fmt.Sprintf("%d", pid)), 0766)
+	if err != nil {
+		// 写入失败
+		return err
+	}
+
+	return nil
+}

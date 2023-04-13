@@ -6,6 +6,7 @@
 package apis
 
 import (
+	"gpt-zmide-server/helper"
 	"gpt-zmide-server/models"
 	"strconv"
 
@@ -80,6 +81,29 @@ func (ctl *Application) Update(c *gin.Context) {
 	if name != "" {
 		app.Name = name
 	}
+
+	if err = models.DB.Updates(app).Error; err != nil {
+		ctl.Fail(c, err.Error())
+		return
+	}
+
+	ctl.Success(c, app)
+}
+
+func (ctl *Application) RestApiKey(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		ctl.Fail(c, err.Error())
+		return
+	}
+
+	app := models.Application{ID: uint(id)}
+	if err = models.DB.First(&app).Error; err != nil {
+		ctl.Fail(c, err.Error())
+		return
+	}
+
+	app.ApiKey = "sk-" + helper.RandomStr(48)
 
 	if err = models.DB.Updates(app).Error; err != nil {
 		ctl.Fail(c, err.Error())
